@@ -56,9 +56,11 @@ local-llm-pdf-renamer/
 │   ├── run_batch.sh              # 雑誌用 systemd バックグラウンド起動ラッパー
 │   ├── run_papers_batch.sh       # 論文用 systemd バックグラウンド起動ラッパー
 │   ├── status_batch.sh           # 雑誌用 リアルタイム進捗確認スクリプト
-│   └── status_papers_batch.sh    # 論文用 リアルタイム進捗確認スクリプト
+│   ├── status_papers_batch.sh    # 論文用 リアルタイム進捗確認スクリプト
+│   └── check_anonymity.sh        # 公開前プライバシー・個人情報自動監査スクリプト
 ├── docs/
 │   └── index.html                # GitHub Pages用公開サイト
+├── PUBLISHING_GUIDE.md           # 📘 AI生成プロジェクトの安全公開・完全匿名化ガイド
 ├── .gitignore
 ├── LICENSE
 └── README.md
@@ -159,6 +161,17 @@ AIエージェントにチャットで大量処理を依頼すると、「口約
 4. 処理が途中で止まっても再開できるよう、SQLite や JSON で1ファイルごとに進捗を保存（レジューム対応）してください。
 5. 処理を開始したら、現在の進捗（件数と内訳）を確認できる status 用のシェルスクリプトを作成し、その実行コマンドを私に教えてください。
 ```
+
+---
+
+## 📘 安全公開・完全匿名化ワークフロー
+
+AIエージェントと開発したローカルスクリプトを、個人情報（本名・メールアドレス・ローカル固有パス）を完全に消去してオープンソース公開するための完全手順を [PUBLISHING_GUIDE.md](PUBLISHING_GUIDE.md) にまとめています。
+
+* 機密データ・実行DBの `.gitignore` 隔離
+* コード内の絶対パス相対化
+* GitHub公式の `noreply` 匿名コミットAuthor設定
+* 万が一コミットしてしまった場合の強制書き換え（`--amend` & `push --force`）
 
 ---
 
