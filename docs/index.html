@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ja" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Local LLM PDF Renamer | ローカルGPU × Gemma 4 Vision による大量PDF自動リネーム</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter & Noto Sans JP -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'Noto Sans JP', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              500: '#0ea5e9',
+              600: '#0284c7',
+              700: '#0369a1',
+              900: '#0c4a6e',
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans antialiased selection:bg-brand-500 selection:text-white">
+
+  <!-- Header / Navigation -->
+  <nav class="sticky top-0 z-50 backdrop-blur-md bg-slate-950/80 border-b border-slate-800/80">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="p-2 bg-gradient-to-tr from-brand-600 to-indigo-600 rounded-xl shadow-lg shadow-brand-500/20">
+          <i data-lucide="file-text" class="w-5 h-5 text-white"></i>
+        </div>
+        <span class="font-bold text-lg tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-300">
+          Local LLM PDF Renamer
+        </span>
+      </div>
+      <div class="flex items-center space-x-4">
+        <a href="#features" class="text-sm text-slate-300 hover:text-white transition">特徴</a>
+        <a href="#architecture" class="text-sm text-slate-300 hover:text-white transition">アーキテクチャ</a>
+        <a href="#examples" class="text-sm text-slate-300 hover:text-white transition">変換実例</a>
+        <a href="#prompt" class="text-sm text-slate-300 hover:text-white transition">AI指示プロンプト</a>
+        <a href="https://github.com/rhinoxy/local-llm-pdf-renamer" target="_blank" class="flex items-center space-x-2 px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-sm font-medium transition border border-slate-700">
+          <i data-lucide="github" class="w-4 h-4"></i>
+          <span>GitHub</span>
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <section class="relative pt-24 pb-20 overflow-hidden">
+    <div class="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(14,165,233,0.15),rgba(255,255,255,0))]"></div>
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
+      <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-400 text-xs font-semibold uppercase tracking-wider mb-6">
+        <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+        <span>Gemma 4 Vision × Local GPU (Vulkan)</span>
+      </div>
+      <h1 class="text-4xl sm:text-6xl font-extrabold tracking-tight text-white leading-tight sm:leading-none mb-6">
+        大量のPDFを、<br>
+        <span class="bg-clip-text text-transparent bg-gradient-to-r from-brand-400 via-sky-300 to-indigo-400">
+          内容から自動認識して安全リネーム
+        </span>
+      </h1>
+      <p class="text-lg sm:text-xl text-slate-400 max-w-3xl mx-auto mb-10 leading-relaxed">
+        無関係なファイル名（<code>download (24).pdf</code> や <code>110_727.pdf</code>）を、ローカルGPU上のVisionモデルで瞬時に解析。
+        AIエージェントの口約束ハルシネーションを克服した、完全自律・安全ロールバック対応のバッチ処理基盤。
+      </p>
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+        <a href="#examples" class="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-gradient-to-r from-brand-500 to-indigo-600 hover:from-brand-600 hover:to-indigo-700 font-semibold shadow-lg shadow-brand-500/25 transition transform hover:-translate-y-0.5">
+          変換実例を見る
+        </a>
+        <a href="#quickstart" class="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 font-semibold text-slate-300 hover:text-white transition">
+          クイックスタート
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Problem & Solution Comparison -->
+  <section id="features" class="py-16 border-t border-slate-800/60 bg-slate-900/30">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-12">
+        <h2 class="text-2xl sm:text-3xl font-bold text-white mb-3">AIエージェントの「口約束問題」を完全克服</h2>
+        <p class="text-slate-400">チャットエージェント（OpenClaw等）が直面する壁と、本システムによる解決アプローチ</p>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-8">
+        <!-- The Problem -->
+        <div class="p-6 rounded-2xl bg-red-950/20 border border-red-900/30 relative">
+          <div class="flex items-center space-x-3 mb-4">
+            <div class="p-2 bg-red-500/10 rounded-lg text-red-400">
+              <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+            </div>
+            <h3 class="text-lg font-bold text-red-200">一般的なAIチャットの課題</h3>
+          </div>
+          <ul class="space-y-3 text-sm text-slate-300">
+            <li class="flex items-start space-x-2">
+              <i data-lucide="x-circle" class="w-4 h-4 text-red-400 mt-0.5 shrink-0"></i>
+              <span><strong>虚偽の進捗報告:</strong> 裏でコマンドを実行していないのに「140件完了しました」と口だけで嘘をつく。</span>
+            </li>
+            <li class="flex items-start space-x-2">
+              <i data-lucide="x-circle" class="w-4 h-4 text-red-400 mt-0.5 shrink-0"></i>
+              <span><strong>ブラウザ切断で停止:</strong> チャットの返答時しか動かず、画面を閉じると処理が中断する。</span>
+            </li>
+            <li class="flex items-start space-x-2">
+              <i data-lucide="x-circle" class="w-4 h-4 text-red-400 mt-0.5 shrink-0"></i>
+              <span><strong>巻き戻せない危険:</strong> いきなり上書きリネームされ、誤判定時に元のファイル名が分からなくなる。</span>
+            </li>
+          </ul>
+        </div>
+
+        <!-- The Solution -->
+        <div class="p-6 rounded-2xl bg-emerald-950/20 border border-emerald-900/30 relative">
+          <div class="flex items-center space-x-3 mb-4">
+            <div class="p-2 bg-emerald-500/10 rounded-lg text-emerald-400">
+              <i data-lucide="check-circle" class="w-5 h-5"></i>
+            </div>
+            <h3 class="text-lg font-bold text-emerald-200">本システムの解決アーキテクチャ</h3>
+          </div>
+          <ul class="space-y-3 text-sm text-slate-300">
+            <li class="flex items-start space-x-2">
+              <i data-lucide="check" class="w-4 h-4 text-emerald-400 mt-0.5 shrink-0"></i>
+              <span><strong>systemd 完全常駐化:</strong> <code>systemd-run --user</code> により、切断・スリープ復帰でも自律継続。</span>
+            </li>
+            <li class="flex items-start space-x-2">
+              <i data-lucide="check" class="w-4 h-4 text-emerald-400 mt-0.5 shrink-0"></i>
+              <span><strong>Vision自動フォールバック:</strong> スキャンPDFや文字化けも表紙画像から直接視覚読み取り。</span>
+            </li>
+            <li class="flex items-start space-x-2">
+              <i data-lucide="check" class="w-4 h-4 text-emerald-400 mt-0.5 shrink-0"></i>
+              <span><strong>Dry-run & ワンタッチRollback:</strong> まずCSVで一覧確認し、万一の復元も1秒で可能。</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Architecture Flow -->
+  <section id="architecture" class="py-16 border-t border-slate-800/60">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-12">
+        <h2 class="text-2xl sm:text-3xl font-bold text-white mb-3">堅牢な処理フロー</h2>
+        <p class="text-slate-400">テキストとVisionのハイブリッド判定で高速・高精度を実現</p>
+      </div>
+
+      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="p-5 rounded-xl bg-slate-900/60 border border-slate-800 relative">
+          <div class="w-8 h-8 rounded-lg bg-brand-500/10 border border-brand-500/20 text-brand-400 font-bold flex items-center justify-center mb-3">1</div>
+          <h4 class="font-bold text-white mb-1">無関係名の自動検出</h4>
+          <p class="text-xs text-slate-400">すでにタイトルが付いているファイルはスキップし、<code>download</code> や巻号番号などのみを抽出。</p>
+        </div>
+        <div class="p-5 rounded-xl bg-slate-900/60 border border-slate-800 relative">
+          <div class="w-8 h-8 rounded-lg bg-brand-500/10 border border-brand-500/20 text-brand-400 font-bold flex items-center justify-center mb-3">2</div>
+          <h4 class="font-bold text-white mb-1">ハイブリッド解析</h4>
+          <p class="text-xs text-slate-400">テキスト抽出で高速判定。文字化けや画像PDFは自動でGemma 4 Visionに切り替え。</p>
+        </div>
+        <div class="p-5 rounded-xl bg-slate-900/60 border border-slate-800 relative">
+          <div class="w-8 h-8 rounded-lg bg-brand-500/10 border border-brand-500/20 text-brand-400 font-bold flex items-center justify-center mb-3">3</div>
+          <h4 class="font-bold text-white mb-1">SQLite 進捗DB</h4>
+          <p class="text-xs text-slate-400">1ファイル完了ごとにトランザクション記録。途中で止まっても続きから瞬時に再開。</p>
+        </div>
+        <div class="p-5 rounded-xl bg-slate-900/60 border border-slate-800 relative">
+          <div class="w-8 h-8 rounded-lg bg-brand-500/10 border border-brand-500/20 text-brand-400 font-bold flex items-center justify-center mb-3">4</div>
+          <h4 class="font-bold text-white mb-1">安全リネーム & Rollback</h4>
+          <p class="text-xs text-slate-400">CSV確認後に一括反映。同名衝突（_1, _2）を防止し、いつでも元通りに復元可能。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Real Examples Table -->
+  <section id="examples" class="py-16 border-t border-slate-800/60 bg-slate-900/30">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-12">
+        <h2 class="text-2xl sm:text-3xl font-bold text-white mb-3">実際のリネーム実例（実測抜粋）</h2>
+        <p class="text-slate-400">雑誌353件、学術論文490件以上の処理に成功した実際の結果です</p>
+      </div>
+
+      <div class="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900/60 shadow-xl">
+        <table class="w-full text-left text-sm text-slate-300">
+          <thead class="bg-slate-800/80 text-xs uppercase font-semibold text-slate-400 border-b border-slate-800">
+            <tr>
+              <th class="px-6 py-4">種別</th>
+              <th class="px-6 py-4">変更前のファイル名</th>
+              <th class="px-6 py-4">抽出された正式名（変更後）</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-800/60 font-mono text-xs">
+            <tr class="hover:bg-slate-800/30 transition">
+              <td class="px-6 py-4 font-sans font-semibold text-indigo-400">学術論文</td>
+              <td class="px-6 py-4 text-red-400/90">download (25).pdf</td>
+              <td class="px-6 py-4 text-emerald-400 font-bold font-sans text-sm">B スポット再発見_角 卓郎.pdf</td>
+            </tr>
+            <tr class="hover:bg-slate-800/30 transition">
+              <td class="px-6 py-4 font-sans font-semibold text-indigo-400">学術論文</td>
+              <td class="px-6 py-4 text-red-400/90">download (28).pdf</td>
+              <td class="px-6 py-4 text-emerald-400 font-bold font-sans text-sm">急性錐体尖炎から細菌性髄膜炎をきたした成人例_関根.pdf</td>
+            </tr>
+            <tr class="hover:bg-slate-800/30 transition">
+              <td class="px-6 py-4 font-sans font-semibold text-indigo-400">学術論文</td>
+              <td class="px-6 py-4 text-red-400/90">新規ドキュメント8.pdf</td>
+              <td class="px-6 py-4 text-emerald-400 font-bold font-sans text-sm">Multimodal Outcomes of Early Open Extended..._Agata M Plonczak.pdf</td>
+            </tr>
+            <tr class="hover:bg-slate-800/30 transition">
+              <td class="px-6 py-4 font-sans font-semibold text-amber-400">文字化けPDF</td>
+              <td class="px-6 py-4 text-red-400/90">17_91.pdf</td>
+              <td class="px-6 py-4 text-emerald-400 font-bold font-sans text-sm">House dust as an indoor environmental contaminant_池田四郎.pdf</td>
+            </tr>
+            <tr class="hover:bg-slate-800/30 transition">
+              <td class="px-6 py-4 font-sans font-semibold text-brand-400">電子雑誌</td>
+              <td class="px-6 py-4 text-red-400/90">Document_20251009_0008.pdf</td>
+              <td class="px-6 py-4 text-emerald-400 font-bold font-sans text-sm">最新知識から めまい症例を診る！-JOHNS(2021年1月号 Vol. 37 No. 1).pdf</td>
+            </tr>
+            <tr class="hover:bg-slate-800/30 transition">
+              <td class="px-6 py-4 font-sans font-semibold text-brand-400">電子雑誌</td>
+              <td class="px-6 py-4 text-red-400/90">Document_20251009_0007.pdf</td>
+              <td class="px-6 py-4 text-emerald-400 font-bold font-sans text-sm">耳鼻咽喉科の 問診のポイント 一どこまで診断に近づけるかー-ENTONI(2020年4月 No.244).pdf</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Prompt Template Section -->
+  <section id="prompt" class="py-16 border-t border-slate-800/60">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-10">
+        <h2 class="text-2xl sm:text-3xl font-bold text-white mb-3">💡 AIエージェントに指示するプロンプト</h2>
+        <p class="text-slate-400">OpenClaw等に依頼する際、ハルシネーションを防ぎ確実に自律実行させるテンプレート</p>
+      </div>
+
+      <div class="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl">
+        <div class="flex items-center justify-between px-6 py-3 bg-slate-800/60 border-b border-slate-800">
+          <span class="text-xs font-semibold text-slate-300">Prompt Template (Markdown)</span>
+          <button onclick="navigator.clipboard.writeText(document.getElementById('prompt-text').innerText); alert('コピーしました！');" class="flex items-center space-x-1.5 text-xs text-brand-400 hover:text-brand-300 transition">
+            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+            <span>コピー</span>
+          </button>
+        </div>
+        <pre id="prompt-text" class="p-6 text-sm text-slate-200 font-mono whitespace-pre-wrap leading-relaxed overflow-x-auto">【指示】
+以下のフォルダにあるPDFを整理・リネームしてください。
+対象フォルダ: /パス/to/フォルダ
+
+【厳守ルール】
+1. チャットの会話だけで進捗を報告しないでください。必ず bash ツールを使って実際にコードを作成・実行してください。
+2. 処理数が多いので、チャットの返答で処理するのではなく、Pythonスクリプトを作成して systemd-run または nohup でバックグラウンド実行してください。
+3. いきなりファイルを書き換えず、まずは Dry-run（解析のみ行い、変更前後の対応表を CSV に出力）で実行してください。
+4. 処理が途中で止まっても再開できるよう、SQLite や JSON で1ファイルごとに進捗を保存（レジューム対応）してください。
+5. 処理を開始したら、現在の進捗（件数と内訳）を確認できる status 用のシェルスクリプトを作成し、その実行コマンドを私に教えてください。</pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- Quickstart -->
+  <section id="quickstart" class="py-16 border-t border-slate-800/60 bg-slate-900/30">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-10">
+        <h2 class="text-2xl sm:text-3xl font-bold text-white mb-3">クイックスタート</h2>
+        <p class="text-slate-400">数行のコマンドで即座にバックグラウンド実行を開始できます</p>
+      </div>
+
+      <div class="space-y-6">
+        <div class="p-5 rounded-xl bg-slate-900 border border-slate-800">
+          <h4 class="text-sm font-semibold text-brand-400 mb-2">1. リポジトリのクローンと準備</h4>
+          <pre class="bg-slate-950 p-4 rounded-lg text-xs font-mono text-slate-200 overflow-x-auto"><code>git clone https://github.com/&lt;user&gt;/local-llm-pdf-renamer.git
+cd local-llm-pdf-renamer
+pip install pymupdf requests</code></pre>
+        </div>
+
+        <div class="p-5 rounded-xl bg-slate-900 border border-slate-800">
+          <h4 class="text-sm font-semibold text-brand-400 mb-2">2. バックグラウンド解析の起動（Dry-run）</h4>
+          <pre class="bg-slate-950 p-4 rounded-lg text-xs font-mono text-slate-200 overflow-x-auto"><code>./scripts/run_papers_batch.sh --dry-run
+# 進捗確認
+./scripts/status_papers_batch.sh</code></pre>
+        </div>
+
+        <div class="p-5 rounded-xl bg-slate-900 border border-slate-800">
+          <h4 class="text-sm font-semibold text-brand-400 mb-2">3. レポート確認後にリネーム適用</h4>
+          <pre class="bg-slate-950 p-4 rounded-lg text-xs font-mono text-slate-200 overflow-x-auto"><code>python3 scripts/rename_papers.py --apply
+# 万が一元に戻す場合: python3 scripts/rename_papers.py --rollback</code></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="py-12 border-t border-slate-800 text-center text-xs text-slate-500">
+    <p>© 2026 rhinoxy. Released under the MIT License.</p>
+    <p class="mt-1">Powered by Gemma 4 Vision & Ollama & systemd</p>
+  </footer>
+
+  <script>
+    lucide.createIcons();
+  </script>
+</body>
+</html>
